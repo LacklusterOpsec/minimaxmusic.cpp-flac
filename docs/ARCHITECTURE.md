@@ -67,9 +67,8 @@ Builds six binaries: `mm-lm` (autoregressive stage CLI), `mm-synth`
 encoder/decoder) and `quantize` (GGUF requantizer).
 
 A single `build/` directory serves every backend combination. With
-`buildall`, the backend is picked at runtime: the `GGML_BACKEND`
-environment variable forces a specific device (`CUDA0`, `Vulkan0`, `CPU`),
-unset picks the best available one.
+`buildall`, the backend is picked at runtime: `--device` forces a specific
+device (`CUDA0`, `Vulkan0`, `CPU`), omitted picks the best available one.
 
 ## Models
 
@@ -525,6 +524,8 @@ Required:
   --request <json>       Input request JSON (carries model routing)
 
 Optional:
+  --device <name>        Compute device: CUDA0, Vulkan0, MTL0, CPU...
+                         (default: best available)
   --caption <text>       Caption (instead of --request)
   --lyrics <text>        Lyrics (instead of --request)
   --out <path>           Output request JSON (default: request.json)
@@ -563,6 +564,8 @@ Required:
   --request <json>       Input request JSON (carries model routing)
 
 Optional:
+  --device <name>        Compute device: CUDA0, Vulkan0, MTL0, CPU...
+                         (default: best available)
   --caption <text>       Caption (instead of --request)
   --lyrics <text>        Lyrics (instead of --request)
   --out <path>           Output audio path (default: out.mp3)
@@ -574,7 +577,7 @@ Optional:
 Debug:
   --max-seq <N>          LM KV cache size (default: model context)
   --no-fa                Disable flash attention
-  --no-batch-cfg         Split CFG into two separate forwards
+  --no-batch-cfg         Split CFG into two separate forwards (LM + DiT)
   --clamp-fp16           Clamp hidden states to FP16 range
   --dump <dir>           Dump intermediate tensors
 ```
@@ -614,6 +617,10 @@ Usage: ./mm-server --models <dir> [options]
 
 Required:
   --models <dir>         Directory of GGUF model files
+
+Optional:
+  --device <name>        Compute device: CUDA0, Vulkan0, MTL0, CPU...
+                         (default: best available)
 
 Server:
   --host <addr>          Listen address (default: 127.0.0.1)
@@ -736,6 +743,8 @@ Output naming: song.wav -> song.vae (f32) or song.nac8 (Q8) or song.nac4 (Q4)
                song.vae -> song.wav
 
 Memory control:
+  --device <name>         Compute device: CUDA0, Vulkan0, MTL0, CPU...
+                          (default: best available)
   --vae-chunk <N>         Latent frames per tile (default: 689)
   --vae-overlap <N>       Overlap frames per side (default: 86)
 
@@ -823,9 +832,9 @@ test owns both sides: it builds the torch reference, runs its `test-*`
 binary on the same inputs, checks relative RMS + max abs error (+ argmax
 token match where it applies) against its own threshold, and exits non zero
 on failure. Thresholds: vae/cond 1e-2, depth 2e-2, dit 5e-2, lm 2e-2 +
-argmax. `GGML_BACKEND` selects the device (empty = CUDA0), and the
-`test-*.sh` next to each test runs it on CUDA0 then CPU and archives the
-output as `{backend}-{component}.log`.
+argmax. A leading `--device <name>` selects the device (omitted = best
+available), and the `test-*.sh` next to each test runs it on CUDA0 then CPU
+and archives the output as `{backend}-{component}.log`.
 
 `test-philox.py` checks the noise the DiT starts from against
 `torch.randn` on CUDA in bfloat16, on one window worth of elements, which is

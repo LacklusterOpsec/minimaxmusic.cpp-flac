@@ -19,6 +19,7 @@
 // access is serialized by the single worker thread (no mutex needed).
 
 #include "audio-io.h"
+#include "backend.h"
 #include "model-registry.h"
 #include "pipeline.h"
 #include "prompt.h"
@@ -683,6 +684,10 @@ static void print_usage(const char * argv0) {
             "Required:\n"
             "  --models <dir>         Directory of GGUF model files\n"
             "\n"
+            "Optional:\n"
+            "  --device <name>        Compute device: CUDA0, Vulkan0, MTL0, CPU...\n"
+            "                         (default: best available)\n"
+            "\n"
             "Server:\n"
             "  --host <addr>          Listen address (default: 127.0.0.1)\n"
             "  --port <N>             Listen port (default: 8086)\n"
@@ -699,8 +704,9 @@ static void print_usage(const char * argv0) {
 }
 
 int main(int argc, char ** argv) {
-    std::string host = "127.0.0.1";
-    int         port = 8086;
+    std::string  host   = "127.0.0.1";
+    int          port   = 8086;
+    const char * device = NULL;
 
     if (argc < 2) {
         print_usage(argv[0]);
@@ -714,6 +720,8 @@ int main(int argc, char ** argv) {
             port = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--models") == 0 && i + 1 < argc) {
             g_models_dir = argv[++i];
+        } else if (strcmp(argv[i], "--device") == 0 && i + 1 < argc) {
+            device = argv[++i];
         } else if (strcmp(argv[i], "--max-batch") == 0 && i + 1 < argc) {
             g_params.max_batch = atoi(argv[++i]);
             if (g_params.max_batch < 1) {
@@ -738,6 +746,10 @@ int main(int argc, char ** argv) {
     }
 
     if (g_models_dir.empty()) {
+        print_usage(argv[0]);
+        return 1;
+    }
+    if (device && !backend_set_device(device)) {
         print_usage(argv[0]);
         return 1;
     }

@@ -109,11 +109,16 @@ Usage: ./mm-server --models <dir> [options]
 Required:
   --models <dir>         Directory of GGUF model files
 
+Optional:
+  --device <name>        Compute device: CUDA0, Vulkan0, MTL0, CPU...
+                         (default: best available)
+
 Server:
   --host <addr>          Listen address (default: 127.0.0.1)
   --port <N>             Listen port (default: 8086)
   --max-batch <N>        LM batch limit (default: 1)
   --max-seq <N>          LM KV cache size (default: model context)
+  --keep-loaded          Keep every model resident in VRAM (default: evict between stages)
 
 Debug:
   --no-fa                Disable flash attention
