@@ -19,6 +19,7 @@
 // access is serialized by the single worker thread (no mutex needed).
 
 #include "audio-io.h"
+#include "backend.h"
 #include "model-registry.h"
 #include "pipeline.h"
 #include "prompt.h"
@@ -687,6 +688,10 @@ static void print_usage(const char * argv0) {
             "Required:\n"
             "  --models <dir>         Directory of GGUF model files\n"
             "\n"
+            "Optional:\n"
+            "  --device <name>        Compute device: CUDA0, Vulkan0, MTL0, CPU...\n"
+            "                         (default: best available)\n"
+            "\n"
             "Server:\n"
             "  --host <addr>          Listen address (default: 127.0.0.1)\n"
             "  --port <N>             Listen port (default: 8086)\n"
@@ -703,8 +708,9 @@ static void print_usage(const char * argv0) {
 }
 
 int main(int argc, char ** argv) {
-    std::string host = "127.0.0.1";
-    int         port = 8086;
+    std::string  host   = "127.0.0.1";
+    int          port   = 8086;
+    const char * device = NULL;
 
     if (argc < 2) {
         print_usage(argv[0]);
@@ -718,6 +724,8 @@ int main(int argc, char ** argv) {
             port = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--models") == 0 && i + 1 < argc) {
             g_models_dir = argv[++i];
+        } else if (strcmp(argv[i], "--device") == 0 && i + 1 < argc) {
+            device = argv[++i];
         } else if (strcmp(argv[i], "--max-batch") == 0 && i + 1 < argc) {
             g_params.max_batch = atoi(argv[++i]);
             if (g_params.max_batch < 1) {
@@ -742,7 +750,10 @@ int main(int argc, char ** argv) {
     }
 
     if (g_models_dir.empty()) {
-        fprintf(stderr, "[Server] ERROR: --models is required\n");
+        print_usage(argv[0]);
+        return 1;
+    }
+    if (device && !backend_set_device(device)) {
         print_usage(argv[0]);
         return 1;
     }
@@ -860,8 +871,12 @@ int main(int argc, char ** argv) {
     fprintf(stderr, "[Server] Listening on %s:%d\n", host.c_str(), port);
     fprintf(stderr, "[Server] Models: %zu LM, %zu Depth, %zu Cond, %zu DiT, %zu VAE\n", g_registry.lm.size(),
             g_registry.depth.size(), g_registry.cond.size(), g_registry.dit.size(), g_registry.vae.size());
+    // A failed bind must reach the caller: a supervisor that reads only the
+    // exit code would otherwise believe the daemon is up.
+    int exit_code = 0;
     if (!svr.listen(host, port)) {
         fprintf(stderr, "[Server] FATAL: cannot bind %s:%d\n", host.c_str(), port);
+        exit_code = 1;
     }
 
     // stop worker thread: cancel the active job (the pipeline polls the
@@ -876,5 +891,5 @@ int main(int argc, char ** argv) {
 
     store_free(g_pipeline.store);
     fprintf(stderr, "[Server] Done\n");
-    return 0;
+    return exit_code;
 }

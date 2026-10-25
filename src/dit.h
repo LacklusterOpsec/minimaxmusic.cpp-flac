@@ -219,7 +219,7 @@ static struct ggml_tensor * dit_block(struct ggml_context * ctx,
         k    = ggml_cast(ctx, k, GGML_TYPE_F16);
         v    = ggml_cast(ctx, v, GGML_TYPE_F16);
         attn = ggml_flash_attn_ext(ctx, q, k, v, NULL, scale, 0.0f, 0.0f);
-        ggml_flash_attn_ext_set_prec(attn, GGML_PREC_F32);
+        ggml_prec_set_acc(attn, GGML_PREC_F32);
     } else {
         attn = dit_attn_f32(ctx, q, k, v, scale);
     }
@@ -250,9 +250,8 @@ static struct ggml_tensor * dit_build_graph(struct ggml_context * ctx, DiT * m, 
     int S = T + 1;
 
     // Channel concat [latent, zeros, condition] -> [2304, T]
-    struct ggml_tensor * zeros = ggml_scale(ctx, m->in_xt, 0.0f);
-    struct ggml_tensor * x     = ggml_concat(ctx, m->in_xt, zeros, 0);
-    x                          = ggml_concat(ctx, x, m->in_cond, 0);
+    struct ggml_tensor * x = ggml_pad_ext(ctx, m->in_xt, 0, DiT::IN_CH, 0, 0, 0, 0, 0, 0);
+    x                      = ggml_concat(ctx, x, m->in_cond, 0);
 
     // Residual k=1 convs as mul_mat
     x = ggml_add(ctx, ggml_mul_mat(ctx, m->pre_w, x), x);
