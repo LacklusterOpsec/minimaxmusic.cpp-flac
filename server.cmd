@@ -3,7 +3,7 @@
 set PATH=%~dp0build\Release;%PATH%
 
 rem Multi-GPU: set GGML_BACKEND to pick a device (CUDA0, CUDA1, Vulkan0...)
-rem set GGML_BACKEND=CUDA0
+set GGML_BACKEND=CUDA0
 rem set GGML_BACKEND=Vulkan0
 
 mm-server.exe ^
